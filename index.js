@@ -1,5 +1,9 @@
 "use strict";
 
+/**
+ * A backend API for a future development.
+ */
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
@@ -21,6 +25,12 @@ const MongoClient = require('mongodb').MongoClient;
 
 let db;
 
+/**
+ * So far there are two collections in the mongoDB.
+ * 1. Users (usernames, passwords, profile info, tokens, ect.)
+ * 2. Invites (invite codes, sponsor's name, createdat, ect.)
+ */
+
 MongoClient.connect('mongodb://localhost:27017/exampleDb',{ useUnifiedTopology: true }, (err, client) => {
   if (!err) {
     db = client.db('testrun');
@@ -30,6 +40,7 @@ MongoClient.connect('mongodb://localhost:27017/exampleDb',{ useUnifiedTopology: 
   };
 });
 
+// ./
 app.get('/', (req, res) => {
   res.status(200).json({ 
     message: "API for the future!",
@@ -38,14 +49,23 @@ app.get('/', (req, res) => {
    });
 });
 
+// ./user
 app.get('/user', (req, res) => {
-  res.status(200).json({ 
-    message: "User methods that are available.",
-    endpoint: "/user",
-    post: [ "register", "login", "verify", "delete", "invites", "invite", "invitee" ],
+  db.collection('users').find({}).toArray((err, results) => {
+    let userlist = [];
+    for (let user in results) {
+      userlist.push("/user/profile/" + results[user].username);
+    };
+    res.status(200).json({
+      message: "User methods that are available.",
+      endpoint: "/user",
+      post: [ "register", "login", "verify", "delete", "invites", "invite", "invitee" ],
+      users: userlist
+    });
   });
 });
 
+// ./user/register
 app.post('/user/register', (req, res) => {
   let errors = [];
 
@@ -91,6 +111,7 @@ app.post('/user/register', (req, res) => {
   };
 });
 
+// ./user/login
 app.post('/user/login', (req, res) => {
   let errors = [];
 
@@ -139,6 +160,7 @@ app.post('/user/login', (req, res) => {
   });
 });
 
+// ./user/verify
 app.post('/user/verify', (req, res) => {
   let errors = [];
 
@@ -184,6 +206,7 @@ app.post('/user/verify', (req, res) => {
   };
 });
 
+// ./user/invitee
 app.post('/user/invitee', (req, res) => {
   let errors = [];
 
@@ -242,6 +265,7 @@ app.post('/user/invitee', (req, res) => {
   };
 });
 
+// ./user/invites
 app.post('/user/invites', (req, res) => {
   let errors = [];
 
@@ -289,6 +313,7 @@ app.post('/user/invites', (req, res) => {
   };
 });
 
+// ./user/invite
 app.post('/user/invite', (req, res) => {
   let errors = [];
 
@@ -337,6 +362,7 @@ app.post('/user/invite', (req, res) => {
   };
 });
 
+// ./user/delete
 app.post('/user/delete', (req, res) => {
   let errors = [];
 
@@ -383,6 +409,37 @@ app.post('/user/delete', (req, res) => {
       };
       if (errors && errors.length) {
         res.status(400).json({ method: "delete", status: "failure", data: errors });
+      };
+    });
+  };
+});
+
+// ./user/profile/:username
+app.get('/user/profile/:username', (req, res) => {
+  let errors = [];
+  let username;
+
+  if (!req.params.username) {
+    errors.push("Username was missing from query.");
+  } else {
+    username = req.params.username;
+  };
+
+  if (errors && errors.length) {
+    res.status(400).json({ endpoint: "/user/profile/" + username, success: false, data: errors });
+  };
+
+  if (errors.length == 0) {
+    db.collection('users').findOne({ username: username }, (err, result) => {
+      if (result == null) {
+        errors.push("Username does not exist.");
+      } else {
+        delete(result.password);
+        delete(result.token);
+        res.status(201).json({ endpoint: "/user/profile/" + username, success: true, data: result });
+      };
+      if (errors && errors.length) {
+        res.status(404).json({ endpoint: "/user/profile/" + username, success: false, data: errors });
       };
     });
   };
