@@ -42,13 +42,14 @@ app.get('/user', (req, res) => {
   res.status(200).json({ 
     message: "User methods that are available.",
     endpoint: "/user",
-    post: [ "register", "login", "verify", "delete" ]
+    post: [ "register", "login", "verify", "delete", "invite" ],
+    get: [ "invites" ]
   });
 });
 
 app.post('/user/register', (req, res) => {
   let errors = [];
-  
+
   let username;
   let password;
 
@@ -74,7 +75,12 @@ app.post('/user/register', (req, res) => {
       } else {
         let hash = bcrypt.hashSync(password, 10);
         let token = jwt.sign({ check: true }, app.get('Secret'), { expiresIn: 1440 });
-        let user = { "username": username, "password": hash, created: Date.now(), token: token  };
+        let user = { 
+          username: username,
+          password: hash,
+          created: Date.now(),
+          token: token,
+        };
         db.collection('users').insertOne(user, (err, result) => {
           res.status(201).json({ method: "register", status: "success", data: result["ops"] });
         });
@@ -174,6 +180,101 @@ app.post('/user/verify', (req, res) => {
       };
       if (errors && errors.length) {
         res.status(400).json({ method: "verify", status: "failure", data: errors });
+      };
+    });
+  };
+});
+
+app.post('/user/invites', (req, res) => {
+  let errors = [];
+
+  let username;
+  let token;
+
+  if (!req.body.username) {
+    errors.push("Username was missing from query.");
+  } else {
+    username = req.body.username;
+  };
+  if (!req.body.token) {
+    errors.push("Token was missing from query.");
+  } else {
+    token = req.body.token;
+  };
+
+  if (errors && errors.length) {
+    res.status(400).json({ method: "invites", status: "failure", data: errors });
+  };
+
+  if (errors.length == 0) {
+    db.collection('users').findOne({ username: username }, (err, found) => {
+      if (found == null) {
+        errors.push("User does not exist.");
+      } else {
+        jwt.verify(token, app.get('Secret'), (err, decoded) => {
+          if (err && err.name == "TokenExpiredError") {
+            errors.push("Token has expired."); //?
+          };
+          if (err && err.name == "JsonWebTokenError") {
+            errors.push("Invalid token provided.");
+          };
+          if (decoded && decoded.check == true) {
+            db.collection('invites').find({ sponsor: username }).toArray((err, results) => {
+              res.status(200).json({ method: "invites", status: "success", invites: results });
+            });
+          };
+        });
+      };
+      if (errors && errors.length) {
+        res.status(400).json({ method: "invites", status: "failure", data: errors });
+      };
+    });
+  };
+});
+
+app.post('/user/invite', (req, res) => {
+  let errors = [];
+
+  let username;
+  let token;
+
+  if (!req.body.username) {
+    errors.push("Username was missing from query.");
+  } else {
+    username = req.body.username;
+  };
+  if (!req.body.token) {
+    errors.push("Token was missing from query.");
+  } else {
+    token = req.body.token;
+  };
+
+  if (errors && errors.length) {
+    res.status(400).json({ method: "invite", status: "failure", data: errors });
+  };
+
+  if (errors.length == 0) {
+    db.collection('users').findOne({ username: username }, (err, results) => {
+      if (results == null) {
+        errors.push("User does not exist.");
+      } else {
+        jwt.verify(token, app.get('Secret'), (err, decoded) => {
+          if (err && err.name == "TokenExpiredError") {
+            errors.push("Token has expired."); //?
+          };
+          if (err && err.name == "JsonWebTokenError") {
+            errors.push("Invalid token provided.");
+          };
+          if (decoded && decoded.check == true) {
+            let invite = jwt.sign({ check: true }, app.get('Secret'), { expiresIn: 604800 });
+            db.collection('invites').insertOne({ sponsor: username,  invite: invite, created: Date.now()  }, (err, inserted) => {
+              res.status(200).json({ method: "invite", status: "success", invites: inserted['ops'] });
+            });
+          };
+        });
+      };
+      if (errors && errors.length) {
+        res.status(400).json({ method: "invite", status: "failure", data: errors });
       };
     });
   };
