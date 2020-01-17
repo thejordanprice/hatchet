@@ -371,9 +371,13 @@ app.post('/user/delete', (req, res) => {
             errors.push("Invalid token provided.");
           };
           if (decoded && decoded.check == true) {
-            db.collection('users').deleteOne({ _id: results._id }, (err, deleted) => {
-              res.status(200).json({ method: "delete", status: "success", data: results});
-            });
+            // delete users collection data
+            db.collection('users').deleteOne({ _id: results._id });
+            // delete users invite collection data
+            db.collection('invites').deleteMany({ sponsor: results.username });
+            if (errors.length == 0) {
+              res.status(200).json({ method: "delete", status: "success" });
+            }
           };
         });
       };
