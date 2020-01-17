@@ -42,7 +42,7 @@ app.get('/user', (req, res) => {
   res.status(200).json({ 
     message: "User methods that are available.",
     endpoint: "/user",
-    post: [ "register", "login", "verify", "delete", "invites", "invite" ],
+    post: [ "register", "login", "verify", "delete", "invites", "invite", "invitee" ],
   });
 });
 
