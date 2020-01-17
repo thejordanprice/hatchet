@@ -42,8 +42,7 @@ app.get('/user', (req, res) => {
   res.status(200).json({ 
     message: "User methods that are available.",
     endpoint: "/user",
-    post: [ "register", "login", "verify", "delete", "invite" ],
-    get: [ "invites" ]
+    post: [ "register", "login", "verify", "delete", "invites", "invite" ],
   });
 });
 
@@ -180,6 +179,64 @@ app.post('/user/verify', (req, res) => {
       };
       if (errors && errors.length) {
         res.status(400).json({ method: "verify", status: "failure", data: errors });
+      };
+    });
+  };
+});
+
+app.post('/user/invitee', (req, res) => {
+  let errors = [];
+
+  let username;
+  let password;
+  let invite;
+
+  if (!req.body.username) {
+    errors.push("Username was missing from query.");
+  } else {
+    username = req.body.username;
+  };
+  if (!req.body.password) {
+    errors.push("Password was missing from query.");
+  } else {
+    password = req.body.password;
+  };
+  if (!req.body.invite) {
+    errors.push("Invite was missing from query.");
+  } else {
+    invite = req.body.invite;
+  };
+
+  if (errors && errors.length) {
+    res.status(400).json({ method: "invitee", status: "failure", data: errors });
+  };
+
+  if (errors.length == 0) {
+    db.collection('users').findOne({ username: username }, (err, results) => {
+      if (results != null) {
+        errors.push("Username is already registered.");
+      } else {
+        db.collection('invites').findOne({ invite: invite }, (err, results) => {
+          if (results) {
+            let hash = bcrypt.hashSync(password, 10);
+            let token = jwt.sign({ check: true }, app.get('Secret'), { expiresIn: 1440 });
+            let user = { 
+              username: username,
+              password: hash,
+              created: Date.now(),
+              token: token,
+              sponsor: results.sponsor
+            };
+            db.collection('users').insertOne(user, (err, result) => {
+              res.status(201).json({ method: "invitee", status: "success", data: result["ops"] });
+            });
+          } else {
+            errors.push("Invite was not in database.");
+          };
+        });
+      };
+      if (errors && errors.length) {
+        res.status(400).json({ method: "invitee", status: "failure", data: errors });
       };
     });
   };
